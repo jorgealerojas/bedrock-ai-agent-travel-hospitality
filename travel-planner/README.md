@@ -4,6 +4,7 @@
 ## Authors:
 - [Armando Diaz](https://www.linkedin.com/in/armando-diaz-47a498113/) @armdiazg 
 - [Marco Punio](https://www.linkedin.com/in/marcpunio/) @puniomp
+- [Jorge Rojas](https://www.linkedin.com/in/jorgealerojas/) @jorgealerojas
 
 This guide details how to install, configure, and use the agent CDK deployment. The instructions assume that the deployment will be deployed from a terminal running from Linux or MacOS.
 
@@ -12,12 +13,16 @@ Resources provisioned by deployment:
 * S3 bucket
 * Bedrock Agent
 * Bedrock Agent IAM role
-* Bedrock Agent Action Group
-* Lambda function
-* Lambda service-policy permission 
-* Lambda IAM role
+* Two Bedrock Agent Action Groups (Travel and Portfolio)
+* Two Lambda functions (Travel and Portfolio)
+* Lambda service-policy permissions
+* Lambda IAM roles
 
-The tutorial deploys Bedrock agent backed by Anthropic Clause V2 model and creates an Action Group within this agent with the schema located in ``lib/assets/api-schema`` and Python function located in ``lib/assets/lambda``. To do that, the demo also creates an S3 bucket and uploads schema to it. IAM roles are provisioned by CDK. Make sure to modify the policies appropriate for your needs.
+The tutorial deploys Bedrock agent backed by Anthropic Claude V2 model and creates two Action Groups within this agent:
+1. Travel API: For searching flights and hotels using schemas in `lib/assets/api-schema/travel_schema.json`
+2. Portfolio API: For checking stock portfolio value using schemas in `lib/assets/api-schema/portfolio_schema.json`
+
+The Python functions for these APIs are located in `lib/assets/lambda`. To deploy, the demo creates an S3 bucket and uploads schemas to it. IAM roles are provisioned by CDK. Make sure to modify the policies appropriate for your needs.
 
 # Prerequisites
 ===============
@@ -43,17 +48,18 @@ From within the root project folder (``travel-planner``), run the following comm
 ```sh
 npm install
 ```
-Note - if you have `npm ERR!` erros related to overlapping dependencies, run `npm install --force`.
+Note - if you have `npm ERR!` errors related to overlapping dependencies, run `npm install --force`.
 ```sh
 cdk bootstrap
 ```
 
-Substitute "my-api-key" with your SerpApi Api Key:
+Substitute "my-api-key" with your SerpApi Api Key and configure your stock portfolio:
 ```sh
+export STOCK_PORTFOLIO='{"AAPL": 10, "GOOGL": 5, "MSFT": 8}'  # Example portfolio configuration
 cdk deploy -c apiKey="my-api-key"
 ```
 
-Optional - if you want to change the [default settings](lib/constants.ts) you can deploy the stack like this (substituting "my-agent-name", "my-api-key", "my-agent-instruction", "my-agent-model", or "my-agent-description" with your desired values):
+Optional - if you want to change the [default settings](lib/constants.ts) you can deploy the stack like this (substituting values as needed):
 
 ```sh
 cdk deploy -c agentName="my-agent-name" -c apiKey="my-api-key" -c agentInstruction="my-agent-instruction" -c agentModel="my-agent-model" -c agentDescription="my-agent-description"
@@ -61,12 +67,50 @@ cdk deploy -c agentName="my-agent-name" -c apiKey="my-api-key" -c agentInstructi
 
 # Sample prompts:
 
+## Travel Planning
 + *What is the cheapest flight from Atlanta to Miami in October, 2024?*
 + *Can you find me a hotel under $150/night in San Francisco from December 4th to December 15th, 2024?*
 
+## Portfolio Checking
++ *What's the current value of my stock portfolio?*
++ *Can I afford a $5000 trip to Europe based on my current portfolio value?*
++ *How much would I have left in my portfolio after spending $3000 on travel?*
+
+# Features
+
+## Travel Planning
+- Search for flights using Google Flights API
+- Find hotels and accommodations using Google Hotels API
+- Get detailed pricing and availability information
+
+## Portfolio Management
+- Real-time stock price checking using Google Finance
+- Portfolio value calculation
+- Travel budget feasibility analysis
+- Remaining portfolio value estimation after travel expenses
+
 # Automatic OpenAPI generator with Powertools for AWS Lambda (Python):
 
-The [OpenAPI schema](https://docs.aws.amazon.com/bedrock/latest/userguide/agents-api-schema.html) defines a group of APIs that the agent can invoke. You can create your own OpenAPI schema following our [example](lib/assets//api-schema/create_openapi_schema.py), which autogenerates an OpenAPI schema in JSON using [Powertools for AWS Lambda](https://github.com/aws-powertools/powertools-lambda-python).
+The [OpenAPI schema](https://docs.aws.amazon.com/bedrock/latest/userguide/agents-api-schema.html) defines the APIs that the agent can invoke. You can create your own OpenAPI schema following our examples in:
+- Travel API: [lib/assets/api-schema/create_openapi_schema.py](lib/assets/api-schema/create_openapi_schema.py)
+- Portfolio API: [lib/assets/lambda/portfolio_agent.py](lib/assets/lambda/portfolio_agent.py)
+
+Both use [Powertools for AWS Lambda](https://github.com/aws-powertools/powertools-lambda-python) to autogenerate OpenAPI schemas.
+
+# Environment Variables
+
+## Required
+- `API_KEY`: Your SerpApi API key
+
+## Optional
+- `STOCK_PORTFOLIO`: JSON string containing your stock portfolio configuration
+  ```json
+  {
+    "AAPL": 10,    // 10 shares of Apple
+    "GOOGL": 5,    // 5 shares of Google
+    "MSFT": 8      // 8 shares of Microsoft
+  }
+  ```
 
 # How to delete
 
