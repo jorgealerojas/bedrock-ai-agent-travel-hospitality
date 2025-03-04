@@ -9,8 +9,10 @@ import { BedrockAgentConstruct } from './constructs/bedrock-agent-construct';
 import { AGENT_NAME, API_KEY, AGENT_INSTRUCTION, AGENT_MODEL, AGENT_DESCRIPTION } from './constants';
 
 export interface BedrockAgentCdkProps extends cdk.StackProps {
-  readonly specFile: string;
-  readonly lambdaFile: string;
+  readonly travelSpecFile: string;
+  readonly portfolioSpecFile: string;
+  readonly travelLambdaFile: string;
+  readonly portfolioLambdaFile: string;
 }
 
 export class BedrockAgentCdkStack extends cdk.Stack {
@@ -24,28 +26,62 @@ export class BedrockAgentCdkStack extends cdk.Stack {
     const agentName = this.node.tryGetContext("agentName") || AGENT_NAME;
     const agentModel = this.node.tryGetContext("agentModel") || AGENT_MODEL;
     const agentDescription = this.node.tryGetContext("apiKey") || AGENT_DESCRIPTION;
-    const lambdaName = `bedrock-agent-lambda-${randomPrefix}`;
-    const lambdaRoleName = `bedrock-agent-lambda-role-${randomPrefix}`;
+    
+    // Travel Lambda configuration
+    const travelLambdaName = `travel-agent-lambda-${randomPrefix}`;
+    const travelLambdaRoleName = `travel-agent-lambda-role-${randomPrefix}`;
+    
+    // Portfolio Lambda configuration
+    const portfolioLambdaName = `portfolio-agent-lambda-${randomPrefix}`;
+    const portfolioLambdaRoleName = `portfolio-agent-lambda-role-${randomPrefix}`;
+    
     const agentResourceRoleName = `AmazonBedrockExecutionRoleForAgents_${randomPrefix}`; 
 
-    const lambdaRole = new LambdaIamConstruct(this, `LambdaIamConstruct-${randomPrefix}`, { roleName: lambdaRoleName });
+    // Create IAM roles for both Lambdas
+    const travelLambdaRole = new LambdaIamConstruct(this, `TravelLambdaIamConstruct-${randomPrefix}`, { 
+      roleName: travelLambdaRoleName 
+    });
+    const portfolioLambdaRole = new LambdaIamConstruct(this, `PortfolioLambdaIamConstruct-${randomPrefix}`, { 
+      roleName: portfolioLambdaRoleName 
+    });
+
+    // Create S3 bucket for schemas
     const s3Construct = new S3Construct(this, `agent-assets-${randomPrefix}`, {});
+
+    // Create Bedrock agent role
     const bedrockAgentRole = new BedrockIamConstruct(this, `BedrockIamConstruct-${randomPrefix}`, { 
       roleName: agentResourceRoleName,
-      lambdaRoleArn: lambdaRole.lambdaRole.roleArn,
+      lambdaRoleArn: `${travelLambdaRole.lambdaRole.roleArn},${portfolioLambdaRole.lambdaRole.roleArn}`,
       s3BucketArn: s3Construct.bucket.bucketArn,
     });
-    bedrockAgentRole.node.addDependency(lambdaRole);
+    bedrockAgentRole.node.addDependency(travelLambdaRole);
+    bedrockAgentRole.node.addDependency(portfolioLambdaRole);
     bedrockAgentRole.node.addDependency(s3Construct);
-    const agentLambdaConstruct = new LambdaConstruct(this, `LambdaConstruct-${randomPrefix}`, {
-      apiKey: apiKey,
-      lambdaName: lambdaName,
-      lambdaFile: props.lambdaFile,
-      lambdaRoleName: lambdaRoleName,
-      iamRole: lambdaRole.lambdaRole
-    });
-    agentLambdaConstruct.node.addDependency(lambdaRole);
 
+    // Create Travel Lambda
+    const travelLambdaConstruct = new LambdaConstruct(this, `TravelLambdaConstruct-${randomPrefix}`, {
+      apiKey: apiKey,
+      lambdaName: travelLambdaName,
+      lambdaFile: props.travelLambdaFile,
+      lambdaRoleName: travelLambdaRoleName,
+      iamRole: travelLambdaRole.lambdaRole
+    });
+    travelLambdaConstruct.node.addDependency(travelLambdaRole);
+
+    // Create Portfolio Lambda
+    const portfolioLambdaConstruct = new LambdaConstruct(this, `PortfolioLambdaConstruct-${randomPrefix}`, {
+      apiKey: apiKey,
+      lambdaName: portfolioLambdaName,
+      lambdaFile: props.portfolioLambdaFile,
+      lambdaRoleName: portfolioLambdaRoleName,
+      iamRole: portfolioLambdaRole.lambdaRole,
+      environment: {
+        STOCK_PORTFOLIO: process.env.STOCK_PORTFOLIO || '{}'
+      }
+    });
+    portfolioLambdaConstruct.node.addDependency(portfolioLambdaRole);
+
+    // Create Bedrock agent with both action groups
     const bedrockAgentConstruct = new BedrockAgentConstruct(this, `BedrockConstruct-${randomPrefix}`, {
       apiKey: apiKey,
       agentName: agentName,
@@ -53,11 +89,13 @@ export class BedrockAgentCdkStack extends cdk.Stack {
       agentInstruction: agentInstruction,
       agentDescription: agentDescription,
       agentRoleArn: bedrockAgentRole.roleArn,
-      lambdaArn: agentLambdaConstruct.lambdaArn,
+      travelLambdaArn: travelLambdaConstruct.lambdaArn,
+      portfolioLambdaArn: portfolioLambdaConstruct.lambdaArn,
       s3BucketName: s3Construct.bucketName
     });
     bedrockAgentConstruct.node.addDependency(bedrockAgentRole);
     bedrockAgentConstruct.node.addDependency(s3Construct);
-    bedrockAgentConstruct.node.addDependency(agentLambdaConstruct);
+    bedrockAgentConstruct.node.addDependency(travelLambdaConstruct);
+    bedrockAgentConstruct.node.addDependency(portfolioLambdaConstruct);
   }
 }

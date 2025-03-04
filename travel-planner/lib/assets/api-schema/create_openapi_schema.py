@@ -1,11 +1,12 @@
 import os
+import json
 
-from typing import List
+from typing import List, Dict
 from typing_extensions import Annotated
 
 from serpapi import GoogleSearch
 from aws_lambda_powertools import Logger, Tracer
-from aws_lambda_powertools.event_handler.openapi.params import Query
+from aws_lambda_powertools.event_handler.openapi.params import Query, Body
 from aws_lambda_powertools.event_handler import BedrockAgentResolver
 from aws_lambda_powertools.utilities.typing import LambdaContext
 
@@ -85,6 +86,64 @@ def get_hotels(
         
     logger.info(f'results: {output}')
     return output
+
+
+@app.post("/check_portfolio", description="Check stock portfolio value and compare with travel budget using Google Finance")
+@tracer.capture_method
+def check_portfolio(
+    travel_budget: Annotated[float, Query(description="Estimated travel budget to compare against portfolio value")] = None
+) -> Dict:
+    portfolio_str = os.environ.get('STOCK_PORTFOLIO', '{}')
+    portfolio = json.loads(portfolio_str)
+    
+    if not portfolio:
+        return {
+            'error': 'No portfolio configured'
+        }
+    
+    total_value = 0
+    stock_values = {}
+    
+    for symbol, quantity in portfolio.items():
+        params = {
+            "engine": "google_finance",
+            "q": symbol,
+            "api_key": API_KEY
+        }
+        
+        search = GoogleSearch(params)
+        results = search.get_dict()
+        
+        if results.get('error'):
+            logger.error(f"Error fetching price for {symbol}: {results['error']}")
+            continue
+            
+        try:
+            price = float(results['price'])
+            value = price * quantity
+            total_value += value
+            stock_values[symbol] = {
+                'quantity': quantity,
+                'price': price,
+                'value': value
+            }
+        except (KeyError, ValueError) as e:
+            logger.error(f"Error processing price for {symbol}: {str(e)}")
+            continue
+    
+    result = {
+        'total_value': total_value,
+        'stocks': stock_values
+    }
+    
+    if travel_budget is not None:
+        result.update({
+            'can_afford_travel': total_value >= travel_budget,
+            'travel_budget': travel_budget,
+            'remaining_after_travel': total_value - travel_budget
+        })
+    
+    return result
 
 
 @logger.inject_lambda_context

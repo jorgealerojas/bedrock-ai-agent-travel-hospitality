@@ -11,7 +11,8 @@ export interface BedrockProps extends cdk.StackProps {
   readonly agentDescription: string;
   readonly agentModel: string;
   readonly agentRoleArn: string;
-  readonly lambdaArn: string;
+  readonly travelLambdaArn: string;
+  readonly portfolioLambdaArn: string;
   readonly s3BucketName: string;
 }
 
@@ -34,10 +35,17 @@ export class BedrockAgentConstruct extends Construct {
       actionGroups: [
         {
           actionGroupName: 'travel-api',
-          actionGroupExecutor: props.lambdaArn,
+          actionGroupExecutor: props.travelLambdaArn,
           s3BucketName: props.s3BucketName,
-          s3ObjectKey: 'api-schema/schema.json',
+          s3ObjectKey: 'api-schema/travel_schema.json',
           description: 'API to obtain flights and hotels from SerpAPI.',
+        },
+        {
+          actionGroupName: 'portfolio-api',
+          actionGroupExecutor: props.portfolioLambdaArn,
+          s3BucketName: props.s3BucketName,
+          s3ObjectKey: 'api-schema/portfolio_schema.json',
+          description: 'API to check stock portfolio value and compare with travel costs.',
         },
       ],
     });
@@ -45,6 +53,5 @@ export class BedrockAgentConstruct extends Construct {
     new cdk.CfnOutput(this, "BedrockAgentArn", {
       value: agent.agentArn,
     });
-
   }
 }

@@ -1,0 +1,136 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Portfolio Checker API",
+    "version": "1.0.0",
+    "description": "API for checking stock portfolio value and comparing with travel costs"
+  },
+  "paths": {
+    "/check_portfolio": {
+      "get": {
+        "summary": "Check portfolio value and compare with travel budget",
+        "description": "Gets current portfolio value and compares it with travel budget",
+        "operationId": "check_portfolio",
+        "parameters": [
+          {
+            "name": "travel_budget",
+            "in": "query",
+            "description": "Estimated travel budget to compare against portfolio value",
+            "required": false,
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Portfolio value and travel affordability check",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "statusCode": {
+                      "type": "integer",
+                      "example": 200
+                    },
+                    "body": {
+                      "type": "object",
+                      "properties": {
+                        "total_value": {
+                          "type": "number",
+                          "description": "Total portfolio value"
+                        },
+                        "stocks": {
+                          "type": "object",
+                          "description": "Individual stock details",
+                          "additionalProperties": {
+                            "type": "object",
+                            "properties": {
+                              "quantity": {
+                                "type": "integer",
+                                "description": "Number of shares owned"
+                              },
+                              "price": {
+                                "type": "number",
+                                "description": "Current price per share"
+                              },
+                              "value": {
+                                "type": "number",
+                                "description": "Total value of shares"
+                              }
+                            }
+                          }
+                        },
+                        "can_afford_travel": {
+                          "type": "boolean",
+                          "description": "Whether the portfolio can cover travel costs"
+                        },
+                        "travel_budget": {
+                          "type": "number",
+                          "description": "Provided travel budget"
+                        },
+                        "remaining_after_travel": {
+                          "type": "number",
+                          "description": "Remaining portfolio value after travel expenses"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - missing portfolio configuration",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "statusCode": {
+                      "type": "integer",
+                      "example": 400
+                    },
+                    "body": {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "statusCode": {
+                      "type": "integer",
+                      "example": 500
+                    },
+                    "body": {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+} 
