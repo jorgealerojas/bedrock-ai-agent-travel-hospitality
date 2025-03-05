@@ -1,5 +1,6 @@
 import os
 import json
+import boto3
 from typing import Dict, List
 from typing_extensions import Annotated
 
@@ -93,7 +94,7 @@ def check_portfolio(
 @tracer.capture_method
 def calculate_shares_to_sell(
     target_amount: Annotated[float, Query(description="The target amount needed from selling shares")],
-    strategy: Annotated[str, Query(description="Strategy for selling shares: 'proportional' (sell equal percentage from each), 'minimize_tax_impact' (prioritize long-term holdings), or 'single_stock' (sell from highest value stock first)")] = "proportional"
+    strategy: Annotated[str, Query(description="Strategy for selling shares: 'proportional' (sell equal percentage from each) or 'single_stock' (sell from highest value stock first)")] = "proportional"
 ) -> Dict:
     """Calculate which shares to sell to meet a target amount."""
     try:
@@ -102,8 +103,11 @@ def calculate_shares_to_sell(
         
         if not portfolio:
             return {
-                'error': 'No portfolio configured',
-                'shares_to_sell': {}
+                'statusCode': 400,
+                'body': json.dumps({
+                    'error': 'No portfolio configured',
+                    'shares_to_sell': {}
+                })
             }
         
         # Get current prices and values
@@ -130,8 +134,8 @@ def calculate_shares_to_sell(
                 total_value += value
                 stock_values[symbol] = {
                     'quantity': quantity,
-                    'price': price,
-                    'value': value
+                    'price': round(price, 2),
+                    'value': round(value, 2)
                 }
             except (KeyError, ValueError) as e:
                 logger.error(f"Error processing price for {symbol}: {str(e)}")
@@ -139,8 +143,11 @@ def calculate_shares_to_sell(
         
         if target_amount > total_value:
             return {
-                'error': f'Insufficient portfolio value ({total_value}) to meet target amount ({target_amount})',
-                'shares_to_sell': {}
+                'statusCode': 400,
+                'body': json.dumps({
+                    'error': f'Insufficient portfolio value (${round(total_value, 2)}) to meet target amount (${round(target_amount, 2)})',
+                    'shares_to_sell': {}
+                })
             }
         
         shares_to_sell = {}
@@ -179,23 +186,29 @@ def calculate_shares_to_sell(
                 else:
                     shares_to_sell[symbol] = {
                         'shares': shares,
-                        'estimated_value': max_value
+                        'estimated_value': round(max_value, 2)
                     }
                     remaining_target -= max_value
         
         return {
-            'target_amount': target_amount,
-            'strategy': strategy,
-            'shares_to_sell': shares_to_sell,
-            'total_portfolio_value': total_value,
-            'remaining_value': total_value - target_amount
+            'statusCode': 200,
+            'body': json.dumps({
+                'target_amount': round(target_amount, 2),
+                'strategy': strategy,
+                'shares_to_sell': shares_to_sell,
+                'total_portfolio_value': round(total_value, 2),
+                'remaining_value': round(total_value - target_amount, 2)
+            })
         }
         
     except Exception as e:
         logger.error(f"Error calculating shares to sell: {str(e)}")
         return {
-            'error': f"Internal server error: {str(e)}",
-            'shares_to_sell': {}
+            'statusCode': 500,
+            'body': json.dumps({
+                'error': f"Internal server error: {str(e)}",
+                'shares_to_sell': {}
+            })
         }
 
 @logger.inject_lambda_context

@@ -10,9 +10,14 @@ export interface LambdaProps extends cdk.StackProps {
   readonly iamRole: cdk.aws_iam.Role;
   readonly environment?: { [key: string]: string };
   readonly dockerDirectory: string;  // Path to the Docker context directory
+  readonly memorySize?: number;  // Memory size in MB
+  readonly cpu?: number;  // CPU units (1024 units = 1 vCPU)
 }
 
-const defaultProps: Partial<LambdaProps> = {};
+const defaultProps: Partial<LambdaProps> = {
+  memorySize: 1024,  // Default to 1GB memory
+  cpu: 512,  // Default to 0.5 vCPU
+};
 
 export class LambdaConstruct extends Construct {
   public lambdaArn: string;
@@ -36,6 +41,8 @@ export class LambdaConstruct extends Construct {
       timeout: cdk.Duration.seconds(300),
       role: props.iamRole,
       functionName: props.lambdaName,
+      memorySize: props.memorySize,
+      ephemeralStorageSize: cdk.Size.mebibytes(512),  // Add ephemeral storage for container
       environment: {
         API_KEY: props.apiKey,
         ...props.environment,
