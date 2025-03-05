@@ -64,7 +64,8 @@ export class BedrockAgentCdkStack extends cdk.Stack {
       lambdaName: travelLambdaName,
       lambdaFile: props.travelLambdaFile,
       lambdaRoleName: travelLambdaRoleName,
-      iamRole: travelLambdaRole.lambdaRole
+      iamRole: travelLambdaRole.lambdaRole,
+      dockerDirectory: 'lib/assets/lambda/travel'
     });
     travelLambdaConstruct.node.addDependency(travelLambdaRole);
 
@@ -77,7 +78,8 @@ export class BedrockAgentCdkStack extends cdk.Stack {
       iamRole: portfolioLambdaRole.lambdaRole,
       environment: {
         STOCK_PORTFOLIO: process.env.STOCK_PORTFOLIO || '{}'
-      }
+      },
+      dockerDirectory: 'lib/assets/lambda/portfolio'
     });
     portfolioLambdaConstruct.node.addDependency(portfolioLambdaRole);
 

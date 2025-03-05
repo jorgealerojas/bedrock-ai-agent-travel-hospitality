@@ -15,16 +15,36 @@ export class LambdaIamConstruct extends Construct {
 
     props = { ...defaultProps, ...props };
 
-    const lambdaRole = new cdk.aws_iam.Role(this, "LambdaRole", {
+    this.lambdaRole = new cdk.aws_iam.Role(this, "LambdaRole", {
       roleName: props.roleName,
-      assumedBy: new cdk.aws_iam.ServicePrincipal('lambda.amazonaws.com'),
-      managedPolicies: [cdk.aws_iam.ManagedPolicy.fromAwsManagedPolicyName('CloudWatchLogsFullAccess')]
-    });
-    
-    new cdk.CfnOutput(this, "LambdaRoleArn", {
-      value: lambdaRole.roleArn,
+      assumedBy: new cdk.aws_iam.ServicePrincipal("lambda.amazonaws.com"),
     });
 
-    this.lambdaRole = lambdaRole;
+    // Add CloudWatch Logs permissions
+    this.lambdaRole.addToPolicy(
+      new cdk.aws_iam.PolicyStatement({
+        effect: cdk.aws_iam.Effect.ALLOW,
+        actions: [
+          "logs:CreateLogGroup",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents",
+          "logs:DescribeLogStreams"
+        ],
+        resources: ["arn:aws:logs:*:*:*"]
+      })
+    );
+
+    // Add existing SerpAPI permissions
+    this.lambdaRole.addToPolicy(
+      new cdk.aws_iam.PolicyStatement({
+        effect: cdk.aws_iam.Effect.ALLOW,
+        actions: ["bedrock:*"],
+        resources: ["*"],
+      })
+    );
+
+    new cdk.CfnOutput(this, "LambdaRoleArn", {
+      value: this.lambdaRole.roleArn,
+    });
   }
 }

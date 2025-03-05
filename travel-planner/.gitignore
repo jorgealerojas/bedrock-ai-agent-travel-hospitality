@@ -6,3 +6,9 @@ node_modules
 # CDK asset staging directory
 .cdk.staging
 cdk.out
+
+# Ignore compiled TypeScript files
+lib/**/*.js
+lib/**/*.d.ts
+test/**/*.js
+test/**/*.d.ts
