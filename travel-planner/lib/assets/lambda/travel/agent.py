@@ -1,6 +1,6 @@
 import os
 
-from typing import List
+from typing import List, Dict
 from typing_extensions import Annotated
 
 from serpapi import GoogleSearch
@@ -23,7 +23,8 @@ def get_flights(
     arrival_id: Annotated[str, Query(description="Parameter defines the arrival airport code or location kgmid. An airport code is an uppercase 3-letter code. For example, CDG is Paris Charles de Gaulle Airport and AUS is Austin-Bergstrom International Airport.")], 
     outbound_date: Annotated[str, Query(description="Parameter defines the outbound date. The format is YYYY-MM-DD. e.g. 2024-02-08")], 
     return_date: Annotated[str, Query(description="Parameter defines the return date. The format is YYYY-MM-DD. e.g. 2024-02-08")],
-) -> List[dict]:
+    num_passengers: Annotated[int, Query(description="Number of passengers traveling")] = 1,
+) -> Dict:
     
     params = {
         "engine": "google_flights",
@@ -44,13 +45,34 @@ def get_flights(
     logger.info(f"response: {results}")
 
     if results.get('error'):
-        output = results['error'] + "Ask the user for more information related to the context received about the function."
+        output = {
+            'error': results['error'] + " Ask the user for more information related to the context received about the function.",
+            'total_cost': 0
+        }
     elif results.get("best_flights"):
-        output = results.get("best_flights")
+        flights = results.get("best_flights")
+        # Calculate total cost for all passengers
+        total_cost = sum(float(flight.get('price', '0').replace('$', '').replace(',', '')) for flight in flights) * num_passengers
+        output = {
+            'flights': flights,
+            'num_passengers': num_passengers,
+            'total_cost': total_cost,
+            'per_passenger_cost': total_cost / num_passengers
+        }
     elif results.get("other_flights"):
-        output = results.get("other_flights")
+        flights = results.get("other_flights")
+        total_cost = sum(float(flight.get('price', '0').replace('$', '').replace(',', '')) for flight in flights) * num_passengers
+        output = {
+            'flights': flights,
+            'num_passengers': num_passengers,
+            'total_cost': total_cost,
+            'per_passenger_cost': total_cost / num_passengers
+        }
     else:
-        output = results + "Unknown Error."
+        output = {
+            'error': "Unknown Error.",
+            'total_cost': 0
+        }
     return output
 
 
